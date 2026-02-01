@@ -97,6 +97,13 @@ class BUSIDataset(Dataset):
             distance=torch.from_numpy(distance).unsqueeze(0).float(),
         )
 
+def collate_busi(batch: List[Busisample]) -> Busisample:
+    return Busisample(
+        image=torch.stack([item.image for item in batch], dim=0),
+        mask=torch.stack([item.mask for item in batch], dim=0),
+        boundary=torch.stack([item.boundary for item in batch], dim=0),
+        distance=torch.stack([item.distance for item in batch], dim=0),
+    )
 
 def dice_score(pred: torch.Tensor, target: torch.Tensor, eps: float = 1e-6) -> torch.Tensor:
     pred = pred.flatten(1)
@@ -245,8 +252,13 @@ def main() -> None:
     train_len = len(dataset) - val_len
     train_set, val_set = random_split(dataset, [train_len, val_len])
 
-    train_loader = DataLoader(train_set, batch_size=args.batch_size, shuffle=True)
-    val_loader = DataLoader(val_set, batch_size=args.batch_size)
+    train_loader = DataLoader(
+        train_set,
+        batch_size=args.batch_size,
+        shuffle=True,
+        collate_fn=collate_busi,
+    )
+    val_loader = DataLoader(val_set, batch_size=args.batch_size, collate_fn=collate_busi)
 
     model = UM2UNet(base_channels=32).to(device)
     optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr, weight_decay=args.weight_decay)
